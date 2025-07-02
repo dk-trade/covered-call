@@ -1,43 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>Covered Call Calculator</title>
   <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
+
 <body>
   <h1 class="title">Covered Call Strategy</h1>
 
   <form id="tradeForm" class="form">
-    <label>Symbol (e.g., AAPL): <input type="text" id="symbol" maxlength="7" required></label><br>
-    <label>Percent of Price: <input type="number" id="pctPrice" min="1" max="100" required></label><br>
-    <label>Number of Lines: <input type="number" id="lines" min="1" max="30" required></label><br>
+    <div class="form-group">
+      <label>API Token: <input type="text" id="apiToken" placeholder="Enter your API token" required></label>
+    </div>
+    <div class="form-group">
+      <label>Symbol: <input type="text" id="symbol" maxlength="7" placeholder="e.g., AAPL" required></label>
+    </div>
+    <div class="form-group">
+      <label>Percent of Price: <input type="number" id="pctPrice" min="1" max="100" required></label>
+    </div>
+    <div class="form-group">
+      <label>Lines to show: <input type="number" id="lines" min="1" required></label>      
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" id="debugMode"> Run in debug mode</label>
+    </div>
     <button type="submit" class="submit-btn">Fetch & Calculate</button>
   </form>
 
   <div id="message" class="message"></div>
 
-  <table id="resultTable" class="result-table">
-    <thead>
-      <tr>
-        <th>Symbol</th>
-        <th>Price</th>
-        <th>Expire Date</th>
-        <th>Strike</th>
-        <th>Bid</th>
-        <th>Ask</th>
-        <th>Mid</th>
-        <th>Cost</th>
-        <th>Max Profit</th>
-        <th>% Call</th>
-        <th>Ann. % Call</th>
-        <th>Put Price</th>
-        <th>% Put</th>
-        <th>Ann. % Put</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <!-- Results container that will hold multiple tables -->
+  <div id="resultsContainer" class="results-container">
+    <!-- Tables for each expiration date will be dynamically inserted here -->
+  </div>
 </body>
+
 </html>
