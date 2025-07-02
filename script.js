@@ -18,6 +18,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // Calculate DTE from expiration date string
+  const calculateDTE = (expirationStr) => {
+    const expDate = new Date(expirationStr + 'T00:00:00Z');
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const diffTime = expDate.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
   // Create stock input section
   function createStockInputSection() {
     const container = document.getElementById('tradeForm');
@@ -204,10 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
       { key: 'cost', label: 'Cost' },
       { key: 'maxProfit', label: 'Max Profit' },
       { key: 'pctCall', label: '% Call' },
-      { key: 'annPctCall', label: 'Ann. % Call' },
-      { key: 'putMid', label: 'Put Price' },
-      { key: 'pctPut', label: '% Put' },
-      { key: 'annPctPut', label: 'Ann. % Put' }
+      { key: 'annPctCall', label: 'Ann. % Call' }
     ];
     
     const thead = document.createElement('thead');
@@ -257,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Render results table
   function renderResults() {
     const container = document.getElementById('resultsContainer');
-    const topLines = parseInt(document.getElementById('lines').value, 10);
     
     let displayRows = [...allFetchedRecords];
     
@@ -269,14 +274,11 @@ document.addEventListener('DOMContentLoaded', () => {
       displayRows.sort((a, b) => b.annPctCall - a.annPctCall);
     }
     
-    // Limit to top N
-    displayRows = displayRows.slice(0, topLines);
-    
     // Clear and rebuild
     container.innerHTML = '';
     
     const summary = document.createElement('p');
-    summary.textContent = `Showing top ${displayRows.length} results out of ${allFetchedRecords.length} eligible calls.`;
+    summary.textContent = `Showing all ${displayRows.length} eligible call options.`;
     container.appendChild(summary);
     
     const table = document.createElement('table');
@@ -300,137 +302,25 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${formatNumber(r.maxProfit)}</td>
         <td>${r.pctCall.toFixed(2)}%</td>
         <td>${formatNumber(r.annPctCall)}%</td>
-        <td>${r.putMid !== '-' ? formatNumber(r.putMid) : '-'}</td>
-        <td>${r.pctPut !== '-' ? r.pctPut.toFixed(2) + '%' : '-'}</td>
-        <td>${r.annPctPut !== '-' ? formatNumber(r.annPctPut) + '%' : '-'}</td>
       `;
       tbody.appendChild(row);
     });
     
     table.appendChild(tbody);
     container.appendChild(table);
-    
-    // Debug table if enabled
-    if (document.getElementById('debugMode').checked && displayRows.length > 0) {
-      renderDebugTable(displayRows[0]);
-    }
-  }
-
-  // Render debug table
-  function renderDebugTable(firstRow) {
-    const container = document.getElementById('resultsContainer');
-    
-    const debugTitle = document.createElement('h3');
-    debugTitle.textContent = 'Debug: First Row Calculations';
-    debugTitle.style.marginTop = '30px';
-    container.appendChild(debugTitle);
-
-    const debugTable = document.createElement('table');
-    debugTable.className = 'result-table';
-    debugTable.innerHTML = `
-      <thead>
-        <tr>
-          <th>Column</th>
-          <th>Value</th>
-          <th>Calculation Explanation</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    `;
-    const debugTbody = debugTable.querySelector('tbody');
-
-    const debugData = [
-      { column: 'Symbol', value: firstRow.symbol, explanation: 'Stock ticker symbol' },
-      { column: 'Price', value: formatNumber(firstRow.price), explanation: 'Current underlying stock price from API' },
-      { column: 'Expire Date', value: firstRow.expDate, explanation: `Unix timestamp ${firstRow.exp} converted to date format` },
-      { column: 'DTE', value: firstRow.dte, explanation: 'Days to expiration from API' },
-      { column: 'Strike', value: formatNumber(firstRow.strike), explanation: 'Strike price of the call option' },
-      {
-        column: 'Price-Strike %',
-        value: firstRow.priceStrikePct.toFixed(2) + '%',
-        explanation: `Percentage difference: ((Price - Strike) / Price) × 100 = ((${firstRow.price.toFixed(2)} - ${firstRow.strike.toFixed(2)}) / ${firstRow.price.toFixed(2)}) × 100 = ${firstRow.priceStrikePct.toFixed(2)}%`
-      },
-      { column: 'Bid', value: formatNumber(firstRow.bid), explanation: 'Bid price for the call option' },
-      { column: 'Ask', value: formatNumber(firstRow.ask), explanation: 'Ask price for the call option' },
-      {
-        column: 'Mid',
-        value: formatNumber(firstRow.mid),
-        explanation: `Midpoint between bid and ask: (${firstRow.bid.toFixed(2)} + ${firstRow.ask.toFixed(2)}) / 2 = ${firstRow.mid.toFixed(2)}`
-      },
-      {
-        column: 'Cost',
-        value: formatNumber(firstRow.cost),
-        explanation: `Net cost basis: (Stock Price - Call Premium) × 100 = (${firstRow.price.toFixed(2)} - ${firstRow.mid.toFixed(2)}) × 100 = ${firstRow.cost.toFixed(2)}`
-      },
-      {
-        column: 'Max Profit',
-        value: formatNumber(firstRow.maxProfit),
-        explanation: `Maximum profit if called away: (Strike × 100) - Cost = (${firstRow.strike.toFixed(2)} × 100) - ${firstRow.cost.toFixed(2)} = ${firstRow.maxProfit.toFixed(2)}`
-      },
-      {
-        column: '% Call',
-        value: firstRow.pctCall.toFixed(2) + '%',
-        explanation: `Return percentage: (Max Profit / Cost) × 100 = (${firstRow.maxProfit.toFixed(2)} / ${firstRow.cost.toFixed(2)}) × 100 = ${firstRow.pctCall.toFixed(2)}%`
-      },
-      {
-        column: 'Ann. % Call',
-        value: formatNumber(firstRow.annPctCall) + '%',
-        explanation: `Annualized return: (% Call × 365) / DTE = (${firstRow.pctCall.toFixed(2)} × 365) / ${firstRow.dte} = ${firstRow.annPctCall.toFixed(2)}%`
-      }
-    ];
-
-    // Add put-related calculations if available
-    if (firstRow.putMid !== '-') {
-      const x = firstRow.strike - firstRow.putMid;
-      debugData.push(
-        {
-          column: 'Put Price',
-          value: formatNumber(firstRow.putMid),
-          explanation: 'Mid price of the corresponding put option at same strike and expiration'
-        },
-        {
-          column: '% Put',
-          value: firstRow.pctPut.toFixed(2) + '%',
-          explanation: `Put return calculation: putMid / (strike - putMid) × 100 = ${firstRow.putMid.toFixed(2)} / (${firstRow.strike.toFixed(2)} - ${firstRow.putMid.toFixed(2)}) × 100 = ${firstRow.putMid.toFixed(2)} / ${x.toFixed(2)} × 100 = ${firstRow.pctPut.toFixed(2)}%`
-        },
-        {
-          column: 'Ann. % Put',
-          value: formatNumber(firstRow.annPctPut) + '%',
-          explanation: `Annualized put return: (% Put × 365) / DTE = (${firstRow.pctPut.toFixed(2)} × 365) / ${firstRow.dte} = ${firstRow.annPctPut.toFixed(2)}%`
-        }
-      );
-    } else {
-      debugData.push(
-        { column: 'Put Price', value: '-', explanation: 'No matching put option found at this strike and expiration' },
-        { column: '% Put', value: '-', explanation: 'No put data available' },
-        { column: 'Ann. % Put', value: '-', explanation: 'No put data available' }
-      );
-    }
-
-    for (const item of debugData) {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td><strong>${item.column}</strong></td>
-        <td>${item.value}</td>
-        <td>${item.explanation}</td>
-      `;
-      debugTbody.appendChild(row);
-    }
-
-    container.appendChild(debugTable);
   }
 
   // Initialize stock input section
   createStockInputSection();
 
-  // Main form submission
+  // Main form submission - OPTIMIZED VERSION
   document.getElementById('tradeForm').addEventListener('submit', async e => {
     e.preventDefault();
 
     let apiCalls = 0;
     const apiToken = document.getElementById('apiToken').value.trim();
     const pctPrice = parseFloat(document.getElementById('pctPrice').value);
-    const topLines = parseInt(document.getElementById('lines').value, 10);
+    const minDte = parseInt(document.getElementById('minDte').value) || 0;
     const msg = document.getElementById('message');
     const container = document.getElementById('resultsContainer');
 
@@ -460,27 +350,42 @@ document.addEventListener('DOMContentLoaded', () => {
           { headers: { Authorization: `Bearer ${apiToken}` } }
         );
         const expJson = await expRes.json();
-        const expirations = expJson.expirations || [];
+        const allExpirations = expJson.expirations || [];
 
-        if (!expirations.length) continue;
+        if (!allExpirations.length) continue;
 
-        // Get option chains
-        for (const expStr of expirations) {
+        // Filter expirations by minimum DTE
+        const filteredExpirations = allExpirations.filter(expStr => {
+          const dte = calculateDTE(expStr);
+          return dte >= minDte;
+        });
+
+        if (!filteredExpirations.length) continue;
+
+        // OPTIMIZATION: Get first expiration to fetch underlying price
+        apiCalls++;
+        const firstChainRes = await fetch(
+          `https://api.marketdata.app/v1/options/chain/${symbol}/?expiration=${filteredExpirations[0]}&side=call`,
+          { headers: { Authorization: `Bearer ${apiToken}` } }
+        );
+        const firstData = await firstChainRes.json();
+        if (firstData.s !== 'ok' || !firstData.underlyingPrice?.length) continue;
+
+        const price = firstData.underlyingPrice[0];
+        const maxStrike = Math.floor(price * (pctPrice / 100));
+
+        // Now fetch all expirations with strike filter
+        for (const expStr of filteredExpirations) {
           apiCalls++;
           const chainRes = await fetch(
-            `https://api.marketdata.app/v1/options/chain/${symbol}/?expiration=${expStr}`,
+            `https://api.marketdata.app/v1/options/chain/${symbol}/?expiration=${expStr}&side=call&strike=0-${maxStrike}`,
             { headers: { Authorization: `Bearer ${apiToken}` } }
           );
           const data = await chainRes.json();
           if (data.s !== 'ok' || !data.optionSymbol?.length) continue;
 
-          const price = data.underlyingPrice[0];
-          const maxStrike = price * (pctPrice / 100);
-
+          // Process all returned options (already filtered by API)
           for (let i = 0; i < data.optionSymbol.length; i++) {
-            if (data.side[i] !== 'call') continue;
-            if (data.strike[i] >= maxStrike) continue;
-
             const strike = data.strike[i];
             const mid = data.mid[i];
             const bid = data.bid[i];
@@ -493,21 +398,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const pctCall = (maxProfit / cost) * 100;
             const annPctCall = (pctCall * 365) / dte;
             const priceStrikePct = ((price - strike) / price) * 100;
-
-            // Find matching put
-            let putMid = '-', pctPut = '-', annPctPut = '-';
-            const putIdx = data.optionSymbol.findIndex(
-              (_, j) =>
-                data.side[j] === 'put' &&
-                data.strike[j] === strike &&
-                data.expiration[j] === exp
-            );
-            if (putIdx !== -1) {
-              putMid = data.mid[putIdx];
-              const x = strike - putMid;
-              pctPut = (putMid / x) * 100;
-              annPctPut = (pctPut * 365) / data.dte[putIdx];
-            }
 
             allFetchedRecords.push({
               symbol,
@@ -523,10 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
               maxProfit,
               pctCall,
               annPctCall,
-              priceStrikePct,
-              putMid,
-              pctPut,
-              annPctPut
+              priceStrikePct
             });
           }
         }
