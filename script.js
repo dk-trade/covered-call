@@ -27,6 +27,122 @@ document.addEventListener('DOMContentLoaded', () => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // Initialize dual range slider
+  function initializeRangeSlider() {
+    const rangeTrack = document.querySelector('.range-track');
+    const rangeSelected = document.querySelector('.range-selected');
+    const minThumb = document.querySelector('.thumb-min');
+    const maxThumb = document.querySelector('.thumb-max');
+    const minValue = document.getElementById('minStrike');
+    const maxValue = document.getElementById('maxStrike');
+    const display = document.querySelector('.range-display');
+    
+    let minVal = 30;
+    let maxVal = 80;
+    
+    function updateSlider() {
+      const percent1 = minVal;
+      const percent2 = maxVal;
+      
+      rangeSelected.style.left = percent1 + '%';
+      rangeSelected.style.width = (percent2 - percent1) + '%';
+      
+      minThumb.style.left = percent1 + '%';
+      maxThumb.style.left = percent2 + '%';
+      
+      minValue.value = minVal;
+      maxValue.value = maxVal;
+      
+      display.textContent = `${minVal}% - ${maxVal}%`;
+    }
+    
+    function handleMinThumb(e) {
+      e.preventDefault();
+      const startX = e.clientX || e.touches[0].clientX;
+      const startVal = minVal;
+      const rect = rangeTrack.getBoundingClientRect();
+      
+      function onMove(e) {
+        const currentX = e.clientX || e.touches[0].clientX;
+        const diff = currentX - startX;
+        const percent = (diff / rect.width) * 100;
+        let newVal = Math.round(startVal + percent);
+        
+        newVal = Math.max(0, Math.min(newVal, maxVal - 1));
+        minVal = newVal;
+        updateSlider();
+      }
+      
+      function onEnd() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onEnd);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend', onEnd);
+      }
+      
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onEnd);
+      document.addEventListener('touchmove', onMove);
+      document.addEventListener('touchend', onEnd);
+    }
+    
+    function handleMaxThumb(e) {
+      e.preventDefault();
+      const startX = e.clientX || e.touches[0].clientX;
+      const startVal = maxVal;
+      const rect = rangeTrack.getBoundingClientRect();
+      
+      function onMove(e) {
+        const currentX = e.clientX || e.touches[0].clientX;
+        const diff = currentX - startX;
+        const percent = (diff / rect.width) * 100;
+        let newVal = Math.round(startVal + percent);
+        
+        newVal = Math.max(minVal + 1, Math.min(newVal, 100));
+        maxVal = newVal;
+        updateSlider();
+      }
+      
+      function onEnd() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onEnd);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend', onEnd);
+      }
+      
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onEnd);
+      document.addEventListener('touchmove', onMove);
+      document.addEventListener('touchend', onEnd);
+    }
+    
+    minThumb.addEventListener('mousedown', handleMinThumb);
+    minThumb.addEventListener('touchstart', handleMinThumb);
+    maxThumb.addEventListener('mousedown', handleMaxThumb);
+    maxThumb.addEventListener('touchstart', handleMaxThumb);
+    
+    // Click on track to move nearest thumb
+    rangeTrack.addEventListener('click', (e) => {
+      if (e.target.classList.contains('thumb')) return;
+      
+      const rect = rangeTrack.getBoundingClientRect();
+      const percent = ((e.clientX - rect.left) / rect.width) * 100;
+      
+      const distToMin = Math.abs(percent - minVal);
+      const distToMax = Math.abs(percent - maxVal);
+      
+      if (distToMin < distToMax) {
+        minVal = Math.round(Math.max(0, Math.min(percent, maxVal - 1)));
+      } else {
+        maxVal = Math.round(Math.max(minVal + 1, Math.min(percent, 100)));
+      }
+      
+      updateSlider();
+    });
+    
+    updateSlider();
+  }
+
   // Create stock input section
   function createStockInputSection() {
     const container = document.getElementById('tradeForm');
@@ -199,10 +315,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Create sortable table header
-  function createTableHeader() {
+  function createTableHeader(isSingleSymbol = false) {
     const headers = [
-      { key: 'symbol', label: 'Symbol' },
-      { key: 'price', label: 'Price' },
+      { key: 'symbol', label: 'Symbol', skip: isSingleSymbol },
+      { key: 'price', label: 'Price', skip: isSingleSymbol },
       { key: 'expDate', label: 'Expire Date' },
       { key: 'dte', label: 'DTE' },
       { key: 'strike', label: 'Strike' },
@@ -210,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
       { key: 'bid', label: 'Bid' },
       { key: 'ask', label: 'Ask' },
       { key: 'mid', label: 'Mid' },
-      { key: 'cost', label: 'Cost' },
+      { key: 'cost', label: 'Cost' },      
       { key: 'maxProfit', label: 'Max Profit' },
       { key: 'pctCall', label: '% Call' },
       { key: 'annPctCall', label: 'Ann. % Call' }
@@ -219,7 +335,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const thead = document.createElement('thead');
     const tr = document.createElement('tr');
     
-    headers.forEach(({ key, label }) => {
+    headers.forEach(({ key, label, skip }) => {
+      if (skip) return;
+      
       const th = document.createElement('th');
       th.className = 'sortable';
       th.dataset.column = key;
@@ -277,32 +395,54 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear and rebuild
     container.innerHTML = '';
     
+    // Check if single symbol
+    const uniqueSymbols = [...new Set(displayRows.map(r => r.symbol))];
+    const isSingleSymbol = uniqueSymbols.length === 1;
+    
+    if (isSingleSymbol) {
+      // Display symbol and price info above table
+      const stockInfo = document.createElement('div');
+      stockInfo.className = 'stock-info';
+      stockInfo.innerHTML = `
+        <h2>${uniqueSymbols[0]}</h2>
+        <p class="stock-price">Current Price: $${formatNumber(displayRows[0].price)}</p>
+      `;
+      container.appendChild(stockInfo);
+    }
+    
     const summary = document.createElement('p');
     summary.textContent = `Showing all ${displayRows.length} eligible call options.`;
     container.appendChild(summary);
     
     const table = document.createElement('table');
     table.className = 'result-table';
-    table.appendChild(createTableHeader());
+    table.appendChild(createTableHeader(isSingleSymbol));
     
     const tbody = document.createElement('tbody');
     displayRows.forEach(r => {
       const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${r.symbol}</td>
-        <td>${formatNumber(r.price)}</td>
-        <td>${r.expDate}</td>
-        <td>${r.dte}</td>
-        <td>${formatNumber(r.strike)}</td>
-        <td>${r.priceStrikePct.toFixed(2)}%</td>
-        <td>${formatNumber(r.bid)}</td>
-        <td>${formatNumber(r.ask)}</td>
-        <td>${formatNumber(r.mid)}</td>
-        <td>${formatNumber(r.cost)}</td>
-        <td>${formatNumber(r.maxProfit)}</td>
-        <td>${r.pctCall.toFixed(2)}%</td>
-        <td>${formatNumber(r.annPctCall)}%</td>
-      `;
+      const cells = [];
+      
+      if (!isSingleSymbol) {
+        cells.push(`<td>${r.symbol}</td>`);
+        cells.push(`<td>${formatNumber(r.price)}</td>`);
+      }
+      
+      cells.push(
+        `<td>${r.expDate}</td>`,
+        `<td>${r.dte}</td>`,
+        `<td>${formatNumber(r.strike)}</td>`,
+        `<td>${r.priceStrikePct.toFixed(2)}%</td>`,
+        `<td>${formatNumber(r.bid)}</td>`,
+        `<td>${formatNumber(r.ask)}</td>`,
+        `<td>${formatNumber(r.mid)}</td>`,
+        `<td>${formatNumber(r.cost)}</td>`,        
+        `<td>${formatNumber(r.maxProfit)}</td>`,
+        `<td>${r.pctCall.toFixed(2)}%</td>`,
+        `<td>${formatNumber(r.annPctCall)}%</td>`
+      );
+      
+      row.innerHTML = cells.join('');
       tbody.appendChild(row);
     });
     
@@ -312,6 +452,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize stock input section
   createStockInputSection();
+  
+  // Initialize range slider
+  setTimeout(initializeRangeSlider, 100);
 
   // Main form submission - OPTIMIZED VERSION
   document.getElementById('tradeForm').addEventListener('submit', async e => {
@@ -319,7 +462,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let apiCalls = 0;
     const apiToken = document.getElementById('apiToken').value.trim();
-    const pctPrice = parseFloat(document.getElementById('pctPrice').value);
+    const minStrikePct = parseInt(document.getElementById('minStrike').value);
+    const maxStrikePct = parseInt(document.getElementById('maxStrike').value);
     const minDte = parseInt(document.getElementById('minDte').value) || 0;
     const msg = document.getElementById('message');
     const container = document.getElementById('resultsContainer');
@@ -372,13 +516,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (firstData.s !== 'ok' || !firstData.underlyingPrice?.length) continue;
 
         const price = firstData.underlyingPrice[0];
-        const maxStrike = Math.floor(price * (pctPrice / 100));
+        const minStrike = Math.floor(price * (minStrikePct / 100));
+        const maxStrike = Math.floor(price * (maxStrikePct / 100));
 
         // Now fetch all expirations with strike filter
         for (const expStr of filteredExpirations) {
           apiCalls++;
           const chainRes = await fetch(
-            `https://api.marketdata.app/v1/options/chain/${symbol}/?expiration=${expStr}&side=call&strike=0-${maxStrike}`,
+            `https://api.marketdata.app/v1/options/chain/${symbol}/?expiration=${expStr}&side=call&strike=${minStrike}-${maxStrike}`,
             { headers: { Authorization: `Bearer ${apiToken}` } }
           );
           const data = await chainRes.json();
@@ -393,7 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dte = data.dte[i];
             const exp = data.expiration[i];
 
-            const cost = (price - mid) * 100;
+            const cost = (price - mid) * 100;            
             const maxProfit = (strike * 100) - cost;
             const pctCall = (maxProfit / cost) * 100;
             const annPctCall = (pctCall * 365) / dte;
@@ -409,7 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
               bid,
               ask,
               mid,
-              cost,
+              cost,              
               maxProfit,
               pctCall,
               annPctCall,
