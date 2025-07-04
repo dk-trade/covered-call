@@ -21,7 +21,7 @@
     <div class="form-group range-group">
       <label>Strike-%:</label>
       <div class="range-container">
-        <div class="range-slider">
+        <div class="range-slider" data-slider="strike">
           <div class="range-track">
             <div class="range-selected"></div>
             <div class="thumb thumb-min"></div>
@@ -33,8 +33,20 @@
         <input type="hidden" id="maxStrike" value="80">
       </div>
     </div>
-    <div class="form-group">
-      <label>Minimum DTE: <input type="number" id="minDte" value="1" min="1" placeholder="Min days to expiration"></label>
+    <div class="form-group range-group">
+      <label>DTE Range:</label>
+      <div class="range-container">
+        <div class="range-slider" data-slider="dte">
+          <div class="range-track">
+            <div class="range-selected"></div>
+            <div class="thumb thumb-min"></div>
+            <div class="thumb thumb-max"></div>
+          </div>
+          <div class="range-display">1 - 45 days</div>
+        </div>
+        <input type="hidden" id="minDte" value="1">
+        <input type="hidden" id="maxDte" value="45">
+      </div>
     </div>
     <button type="submit" class="submit-btn">Fetch & Calculate</button>
   </form>

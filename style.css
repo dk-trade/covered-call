@@ -391,7 +391,10 @@ body {
 
 .range-display {
   text-align: center;
-  margin-top: 35px;
+  position: absolute;  /* Add absolute positioning */
+  bottom: 0;  /* Position from bottom */
+  left: 0;
+  right: 0;
   font-weight: 700;
   color: var(--primary-700);
   font-size: var(--text-lg);
@@ -610,7 +613,8 @@ body {
   
   /* Mobile range slider adjustments */
   .range-slider {
-    height: 70px;
+    /* height: 70px; */
+    height: 80px;
   }
   
   .thumb {
@@ -729,4 +733,10 @@ body {
 
 .loading * {
   cursor: wait !important;
+}
+/* Sticky Table Header */
+.result-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }

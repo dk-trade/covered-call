@@ -27,22 +27,48 @@ document.addEventListener('DOMContentLoaded', () => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // Initialize dual range slider
-  function initializeRangeSlider() {
-    const rangeTrack = document.querySelector('.range-track');
-    const rangeSelected = document.querySelector('.range-selected');
-    const minThumb = document.querySelector('.thumb-min');
-    const maxThumb = document.querySelector('.thumb-max');
-    const minValue = document.getElementById('minStrike');
-    const maxValue = document.getElementById('maxStrike');
-    const display = document.querySelector('.range-display');
+  // Initialize dual range sliders
+  function initializeRangeSliders() {
+    // Initialize Strike-% slider
+    initializeRangeSlider('strike', {
+      min: 0,
+      max: 100,
+      startMin: 30,
+      startMax: 80,
+      suffix: '%',
+      minInputId: 'minStrike',
+      maxInputId: 'maxStrike'
+    });
     
-    let minVal = 30;
-    let maxVal = 80;
+    // Initialize DTE slider
+    initializeRangeSlider('dte', {
+      min: 1,
+      max: 365,
+      startMin: 1,
+      startMax: 45,
+      suffix: ' days',
+      minInputId: 'minDte',
+      maxInputId: 'maxDte'
+    });
+  }
+
+  // Generic range slider initialization
+  function initializeRangeSlider(sliderName, options) {
+    const rangeSlider = document.querySelector(`[data-slider="${sliderName}"]`);
+    const rangeTrack = rangeSlider.querySelector('.range-track');
+    const rangeSelected = rangeSlider.querySelector('.range-selected');
+    const minThumb = rangeSlider.querySelector('.thumb-min');
+    const maxThumb = rangeSlider.querySelector('.thumb-max');
+    const minValue = document.getElementById(options.minInputId);
+    const maxValue = document.getElementById(options.maxInputId);
+    const display = rangeSlider.querySelector('.range-display');
+    
+    let minVal = options.startMin;
+    let maxVal = options.startMax;
     
     function updateSlider() {
-      const percent1 = minVal;
-      const percent2 = maxVal;
+      const percent1 = ((minVal - options.min) / (options.max - options.min)) * 100;
+      const percent2 = ((maxVal - options.min) / (options.max - options.min)) * 100;
       
       rangeSelected.style.left = percent1 + '%';
       rangeSelected.style.width = (percent2 - percent1) + '%';
@@ -53,7 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
       minValue.value = minVal;
       maxValue.value = maxVal;
       
-      display.textContent = `${minVal}% - ${maxVal}%`;
+      const displayText = sliderName === 'dte' 
+        ? `${minVal} - ${maxVal}${options.suffix}`
+        : `${minVal}${options.suffix} - ${maxVal}${options.suffix}`;
+      display.textContent = displayText;
     }
     
     function handleMinThumb(e) {
@@ -66,9 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentX = e.clientX || e.touches[0].clientX;
         const diff = currentX - startX;
         const percent = (diff / rect.width) * 100;
-        let newVal = Math.round(startVal + percent);
+        const range = options.max - options.min;
+        let newVal = Math.round(startVal + (percent * range / 100));
         
-        newVal = Math.max(0, Math.min(newVal, maxVal - 1));
+        newVal = Math.max(options.min, Math.min(newVal, maxVal - 1));
         minVal = newVal;
         updateSlider();
       }
@@ -96,9 +126,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentX = e.clientX || e.touches[0].clientX;
         const diff = currentX - startX;
         const percent = (diff / rect.width) * 100;
-        let newVal = Math.round(startVal + percent);
+        const range = options.max - options.min;
+        let newVal = Math.round(startVal + (percent * range / 100));
         
-        newVal = Math.max(minVal + 1, Math.min(newVal, 100));
+        newVal = Math.max(minVal + 1, Math.min(newVal, options.max));
         maxVal = newVal;
         updateSlider();
       }
@@ -127,14 +158,16 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const rect = rangeTrack.getBoundingClientRect();
       const percent = ((e.clientX - rect.left) / rect.width) * 100;
+      const range = options.max - options.min;
+      const value = options.min + (percent * range / 100);
       
-      const distToMin = Math.abs(percent - minVal);
-      const distToMax = Math.abs(percent - maxVal);
+      const distToMin = Math.abs(value - minVal);
+      const distToMax = Math.abs(value - maxVal);
       
       if (distToMin < distToMax) {
-        minVal = Math.round(Math.max(0, Math.min(percent, maxVal - 1)));
+        minVal = Math.round(Math.max(options.min, Math.min(value, maxVal - 1)));
       } else {
-        maxVal = Math.round(Math.max(minVal + 1, Math.min(percent, 100)));
+        maxVal = Math.round(Math.max(minVal + 1, Math.min(value, options.max)));
       }
       
       updateSlider();
@@ -453,8 +486,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize stock input section
   createStockInputSection();
   
-  // Initialize range slider
-  setTimeout(initializeRangeSlider, 100);
+  // Initialize range sliders
+  setTimeout(initializeRangeSliders, 100);
 
   // Main form submission - OPTIMIZED VERSION
   document.getElementById('tradeForm').addEventListener('submit', async e => {
@@ -464,7 +497,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const apiToken = document.getElementById('apiToken').value.trim();
     const minStrikePct = parseInt(document.getElementById('minStrike').value);
     const maxStrikePct = parseInt(document.getElementById('maxStrike').value);
-    const minDte = parseInt(document.getElementById('minDte').value) || 0;
+    const minDte = parseInt(document.getElementById('minDte').value) || 1;
+    const maxDte = parseInt(document.getElementById('maxDte').value) || 365;
     const msg = document.getElementById('message');
     const container = document.getElementById('resultsContainer');
 
@@ -498,10 +532,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!allExpirations.length) continue;
 
-        // Filter expirations by minimum DTE
+        // Filter expirations by DTE range
         const filteredExpirations = allExpirations.filter(expStr => {
           const dte = calculateDTE(expStr);
-          return dte >= minDte;
+          return dte >= minDte && dte <= maxDte;
         });
 
         if (!filteredExpirations.length) continue;
@@ -537,6 +571,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const ask = data.ask[i];
             const dte = data.dte[i];
             const exp = data.expiration[i];
+
+            // Double-check DTE is within range (in case API returns unexpected values)
+            if (dte < minDte || dte > maxDte) continue;
 
             const cost = (price - mid) * 100;            
             const maxProfit = (strike * 100) - cost;
