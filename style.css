@@ -459,7 +459,7 @@ body {
   border-collapse: collapse;
   background: white;
   border-radius: var(--radius-xl);
-  overflow: hidden;
+  /* overflow: hidden; */
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--gray-200);
 }
