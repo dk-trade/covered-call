@@ -2,7 +2,7 @@
 
 (() => {
     const metricCols = ['cost', 'maxProfit', 'pctCall', 'annPctCall'];
-    
+
     class ResultsUI {
         constructor(containerId) {
             this.container = document.getElementById(containerId);
@@ -10,17 +10,20 @@
             this.sortState = { column: null, direction: null };
             this.useBidMetrics = false;
             this.toggleContainer = document.getElementById('toggleContainer');
+            this.callPercentage = 50; // Default percentage
         }
 
         setRecords(arr) {
             this.records = Array.isArray(arr) ? [...arr] : [];
             this.sortState = { column: null, direction: null };
-            this.useBidMetrics = false;
+            // this.useBidMetrics = false;
+            this.callPercentage = 50; // Reset to default
             this._setupToggle();
         }
+        
 
-        render() { 
-            this._render(); 
+        render() {
+            this._render();
         }
 
         _setupToggle() {
@@ -31,29 +34,35 @@
 
             this.toggleContainer.style.display = 'block';
             this.toggleContainer.innerHTML = `
-                <label>
-                    <input type="checkbox" id="cbCallMarketToggle">
-                    Use CALL market price (bid)
-                </label>
+                <div style="display: inline-flex; align-items: center; gap: 10px;">
+                    <span>Market Order (Bid)</span>
+                    <input type="range" id="callPriceSlider" min="0" max="100" value="50" style="width: 200px;">
+                    <span>Limit Order (Ask)</span>
+                    <span id="percentageDisplay" style="margin-left: 10px; font-weight: bold;">50%</span>
+                </div>
             `;
 
-            const toggle = document.getElementById('cbCallMarketToggle');
-            toggle.checked = this.useBidMetrics;
-            toggle.addEventListener('change', (e) => {
-                this.useBidMetrics = e.target.checked;
+            const slider = document.getElementById('callPriceSlider');
+            const display = document.getElementById('percentageDisplay');
+
+            this.callPercentage = 50; // Default
+
+            slider.addEventListener('input', (e) => {
+                this.callPercentage = parseInt(e.target.value);
+                display.textContent = `${this.callPercentage}%`;
+                this._recalculateMetrics();
                 this.render();
             });
         }
-
         _getMetrics(record) {
-            return this.useBidMetrics ? record.metricsBid : record.metricsMid;
+            return record.metrics;
         }
 
         _format(num) {
             if (typeof num !== 'number') return num;
-            return num.toLocaleString('en-US', { 
-                minimumFractionDigits: 2, 
-                maximumFractionDigits: 2 
+            return num.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
             });
         }
 
@@ -65,15 +74,15 @@
 
                 sorted.sort((a, b) => {
                     const pick = row => (
-                        metricCols.includes(column) 
-                            ? this._getMetrics(row)[column] 
+                        metricCols.includes(column)
+                            ? this._getMetrics(row)[column]
                             : row[column]
                     );
 
                     let aVal = pick(a), bVal = pick(b);
 
                     if (typeof aVal === 'string' && aVal.includes('%')) {
-                        aVal = parseFloat(aVal); 
+                        aVal = parseFloat(aVal);
                         bVal = parseFloat(bVal);
                     }
 
@@ -147,6 +156,23 @@
             return thead;
         }
 
+        _recalculateMetrics() {
+            this.records.forEach(record => {
+                const callPrice = record.bid + (this.callPercentage / 100) * (record.ask - record.bid);
+                const cost = (record.price - callPrice) * 100;
+                const maxProfit = (record.strike * 100) - cost;
+                const pctCall = (maxProfit / cost) * 100;
+                const annPctCall = (pctCall * 365) / record.dte;
+
+                record.metrics = {
+                    cost: cost,
+                    maxProfit: maxProfit,
+                    pctCall: pctCall,
+                    annPctCall: annPctCall,
+                };
+            });
+        }
+
         _render() {
             this.container.innerHTML = '';
 
@@ -186,7 +212,7 @@
                     tds.push(`<td>${r.symbol}</td>`);
                     tds.push(`<td>${this._format(r.price)}</td>`);
                 }
-                
+
                 const metrics = this._getMetrics(r);
 
                 tds.push(

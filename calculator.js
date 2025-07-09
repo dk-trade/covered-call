@@ -113,8 +113,7 @@ class CoveredCallCalculator {
           ask,
           mid,
           priceStrikePct: metrics.priceStrikePct,
-          metricsMid: metrics.metricsMid,
-          metricsBid: metrics.metricsBid,
+          metrics: metrics.metrics,  // Single metrics object
         });
       }
     }
@@ -122,35 +121,27 @@ class CoveredCallCalculator {
     return records;
   }
 
-  calculateMetrics(price, strike, bid, mid, dte) {
+  calculateMetrics(price, strike, bid, ask, dte, percentage = 50) {
     const priceStrikePct = 100 * (strike - price) / price;
-  
-    // Mid (limit) - Following document specification
-    const costMid = (price - mid) * 100;
-    const maxProfitMid = (strike * 100) - costMid;
-    const pctCallMid = (maxProfitMid / costMid) * 100;
-    const annPctMid = (pctCallMid * 365) / dte;
-  
-    // Bid (market) - Following document specification  
-    const costBid = (price - bid) * 100;
-    const maxProfitBid = (strike * 100) - costBid;
-    const pctCallBid = (maxProfitBid / costBid) * 100;
-    const annPctBid = (pctCallBid * 365) / dte;
-  
+    
+    // Calculate the call price based on percentage
+    // 0% = bid, 50% = mid, 100% = ask
+    const callPrice = bid + (percentage / 100) * (ask - bid);
+    
+    // Single calculation based on percentage
+    const cost = (price - callPrice) * 100;
+    const maxProfit = (strike * 100) - cost;
+    const pctCall = (maxProfit / cost) * 100;
+    const annPctCall = (pctCall * 365) / dte;
+    
     return {
       priceStrikePct,
-      metricsMid: {
-        cost: costMid,
-        maxProfit: maxProfitMid,
-        pctCall: pctCallMid,
-        annPctCall: annPctMid,
-      },
-      metricsBid: {
-        cost: costBid,
-        maxProfit: maxProfitBid,
-        pctCall: pctCallBid,
-        annPctCall: annPctBid,
-      },
+      metrics: {
+        cost: cost,
+        maxProfit: maxProfit,
+        pctCall: pctCall,
+        annPctCall: annPctCall,
+      }
     };
   }
 }
