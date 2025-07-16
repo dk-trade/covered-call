@@ -100,7 +100,7 @@ class CoveredCallCalculator {
 
         if (dte < minDte || dte > maxDte) continue;
 
-        const metrics = this.calculateMetrics(price, strike, bid, mid, dte);
+        const metrics = this.calculateMetrics(price, strike, bid, ask, dte);
 
         records.push({
           symbol,
