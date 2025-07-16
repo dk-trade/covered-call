@@ -101,6 +101,9 @@ class CoveredCallCalculator {
         if (dte < minDte || dte > maxDte) continue;
 
         const metrics = this.calculateMetrics(price, strike, bid, ask, dte);
+        if (metrics.metrics.pctCall < 0 || metrics.metrics.annPctCall < 0) {
+          continue; // don’t push negative record
+        }
 
         records.push({
           symbol,
